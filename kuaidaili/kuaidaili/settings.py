@@ -8,6 +8,11 @@
 #     http://doc.scrapy.org/en/latest/topics/settings.html
 #     http://scrapy.readthedocs.org/en/latest/topics/downloader-middleware.html
 #     http://scrapy.readthedocs.org/en/latest/topics/spider-middleware.html
+#mysql setting
+#MYSQL_HOST='192.168.1.106'
+#MYSQL_DBNAME='kuaidaili'
+#MYSQL_USER='root'
+#MYSQL_PASS='PEter)()3'
 
 BOT_NAME = 'kuaidaili'
 
@@ -64,9 +69,9 @@ ROBOTSTXT_OBEY = True
 
 # Configure item pipelines
 # See http://scrapy.readthedocs.org/en/latest/topics/item-pipeline.html
-#ITEM_PIPELINES = {
-#    'kuaidaili.pipelines.SomePipeline': 300,
-#}
+# ITEM_PIPELINES = {
+#     'kuaidaili.pipelines.MySQLWritePipeline': 300,
+# }
 
 # Enable and configure the AutoThrottle extension (disabled by default)
 # See http://doc.scrapy.org/en/latest/topics/autothrottle.html
