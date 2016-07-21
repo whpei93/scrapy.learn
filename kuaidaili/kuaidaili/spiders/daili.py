@@ -7,10 +7,11 @@ class DailiSpider(scrapy.Spider):
     name = "daili"
     allowed_domains = ["kuaidaili.com"]
     start_urls = [
-        'http://www.kuaidaili.com/free/outtr/693',
-        'http://www.kuaidaili.com/free/intr/640',
-        'http://www.kuaidaili.com/free/inha/651',
-        'http://www.kuaidaili.com/free/outha/687'
+        #'http://www.kuaidaili.com/free/outtr/693',
+        #'http://www.kuaidaili.com/free/intr/640',
+        #'http://www.kuaidaili.com/free/inha/651',
+        #'http://www.kuaidaili.com/free/outha/687'
+        'http://www.kuaidaili.com/proxylist/1'
     ]
     global COUNT
     COUNT = 0
