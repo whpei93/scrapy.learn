@@ -18,7 +18,7 @@ class KuaidailiPipeline(object):
 
 class MySQLWritePipeline(object):
     def __init__(self):
-        self.conn = mysql.connector.connect(user=dbuser,password=dbpass,database=dbname,use_unicode=True)
+        self.conn = mysql.connector.connect(user=dbuser,password=dbpass,database=dbname,host=dbhost,use_unicode=True)
         self.cursor = self.conn.cursor()
     def process_item(self, item, spider):
         try:
