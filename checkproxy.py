@@ -3,88 +3,87 @@
 
 import mysql.connector
 import requests
+import threading
+import sys
 
-#DB info
-dbhost = "192.168.1.106"
-dbname = "kuaidaili"
-dbuser = "root"
-dbpass = "PEter)()3"
+if len(sys.argv) == 1:
+    test_domain = raw_input('Please input target domain :')
+else :
+    test_domain = sys.argv[1]
+url_list = {'douban': 'https://www.douban.com/', 't66y': 'http://t66y.com/index.php'}
+web_length = {'douban':80000, 't66y':14000}
 
-ClearSQL='delete from proxy_server where id not in (select * from (select max(id) from proxy_server group by ip,port) as b)'
-conn = mysql.connector.connect(user=dbuser, password=dbpass, database=dbname, use_unicode=True)
-cursor = conn.cursor()
-cursor.execute(ClearSQL)
-conn.commit()
-cursor.execute('select type,ip,port,location from proxy_server')
-proxies = cursor.fetchall()
+# DB info
+DB_HOST = "192.168.1.108"
+DB_USER = "root"
+DB_PASS = "PEter)()3"
 
-url_list=['http://www.baidu.com','http://www.google.com']
 
-def check_proxy(server,*urllist):
-    type = str(server[0]).lower()
-    ip = str(server[1])
-    port = str(server[2])
-    location = location = server[3].encode('utf-8')
-    conn2 = mysql.connector.connect(user=dbuser, password=dbpass, database='valid_proxies', use_unicode=True)
-    cursor2 = conn2.cursor()
-    count = 0 
-    if len(type.split(',')) == 1:
-        proxy={}
-        proxy[type] = type+'://'+ip+':'+port
-        for url in urllist:
-            try:
-                res = requests.get(url,proxies=proxy,timeout=10)
-                if res.status_code != 200:
-                    print "proxy : %s unable to use" %proxy[type]
-                    #cursor.execute('delete from proxy_server where ip=%s and port=%s',(ip,port))
-                    #conn.commit()
-                    count += 1
-                else:
-                    latency = res.elapsed.microseconds/1000
-                    testurl = url.split('/')[-1]
-                    print "proxy : %s able to use, latency : %d ms" %(proxy[type],latency)
-                    cursor2.execute('insert into valid_server (id,ip,port,type,latency,location,testurl) values(null,%s,%s,%s,%s,%s,%s)',(ip,port,type,latency,location,testurl))
-                    conn2.commit()
-            except requests.exceptions.RequestException,e:
-                print e,"proxy : %s unable to use" %proxy[type]
-                cursor.execute('delete from proxy_server where ip=%s and port=%s',(ip,port))
-                conn.commit()
-                count += 1
-        if count == len(urllist):
-            print "faield to test"
-            cursor.execute('delete from proxy_server where ip=%s and port=%s',(ip,port))
-            conn.commit()
-        else:
-            pass
+# SQL
+clean_tmp = 'delete from proxy where id not in (select * from (select max(id) from proxy group by ip,port) as b)'
+clean_valid = 'delete from proxy where id not in (select * from (select max(id) from proxy group by ip,port,type,domain) as b)'
+delete_unable = 'delete from proxy where id=%s'
+insert_able = 'insert into proxy (id,ip,port,type,latency,domain) values(null,%s,%s,%s,%s,%s)'
+get_proxy = 'select ip,port,id from proxy limit 100'
+
+# Operate MySql
+def op_db(host,dbname,user,passwd,sql,*list):
+    conn = mysql.connector.connect(user=user, password=passwd, database=dbname, host=host, use_unicode=True)
+    cursor = conn.cursor()
+    if sql.startswith('select'):
+        cursor.execute(sql)
+        return cursor.fetchall()
+    elif sql.startswith('insert'):
+        cursor.execute(sql, list)
+        conn.commit()
+    elif sql.startswith('delete'):
+        cursor.execute(sql, list)
+        conn.commit()
     else:
-        for url in urllist:
-            for t in type.split(','):
-                proxy={}
-                proxy[t.strip()] = t.strip()+'://'+ip+':'+port
-                try:
-                    res = requests.get(url,proxies=proxy,timeout=10)
-                    if res.status_code != 200:
-                        print "proxy : %s unable to use" %proxy[t.strip()]
-                        cursor.execute('delete from proxy_server where ip=%s and port=%s',(ip,port))
-                        conn.commit()
-                        count += 1
-                    else:
-                        latency = res.elapsed.microseconds/1000
-                        testurl = url.split('/')[-1]
-                        cursor2.execute('insert into valid_server (id,ip,port,type,latency,location,testurl) values(null,%s,%s,%s,%s,%s,%s)',(ip,port,t.strip(),latency,location,testurl))
-                        print "proxy : %s able to use, latency : %d ms" %(proxy[t.strip()],latency)
-                        conn2.commit()
-                except requests.exceptions.RequestException,e:
-                    print e,"proxy : %s unable to use" %proxy[t.strip()]
-                    cursor.execute('delete from proxy_server where ip=%s and port=%s and type=%s',(ip,port,t.strip()))
-                    conn.commit()
-                    count += 1
-        if count == len(type.split(','))*len(urllist):
-            print "faield to test"
-            cursor.execute('delete from proxy_server where ip=%s and port=%s',(ip,port))
-            conn.commit()
-        else:
-            pass
+        cursor.execute(sql)
+        conn.commit()
 
-for proxy in proxies[:2000]:
-    check_proxy(proxy,*url_list)
+# Run this
+op_db(DB_HOST, "kuaidaili", DB_USER, DB_PASS, clean_tmp)
+tmp_servers = op_db(DB_HOST, "kuaidaili", DB_USER, DB_PASS, get_proxy)
+
+# Check proxy
+def check_proxy(url):
+    types = ['http', 'https']
+    servers = []
+    for i in range(400):
+        try:
+            servers.append(tmp_servers.pop(0))
+        except:
+            pass
+    for server in servers:
+        for t in types:
+            proxy = {}
+            proxy[t] = t + '://' + str(server[0]) + ':' + str(server[1])
+            try:
+                res = requests.get(url, proxies=proxy, timeout=5)
+                if (res.status_code == 200) and (res.url == url) and (len(res.text) > web_length[test_domain]):
+                    latency = res.elapsed.microseconds / 1000
+                    print proxy[t], latency, 'is able to access', res.url
+                    op_db(DB_HOST, test_domain, DB_USER, DB_PASS, insert_able, str(server[0]), str(server[1]), t, str(latency), url.split('/')[-2].split('.')[-2])
+                else:
+                    pass
+            except requests.HTTPError, requests.ConnectionError:
+                pass
+            except :
+                pass
+
+# Main function
+def main():
+    thread_list = []
+    for i in range(100):
+        t = threading.Thread(target=check_proxy, args=(url_list[test_domain],))
+        thread_list.append(t)
+        t.start()
+    for t in thread_list:
+        t.join()
+    op_db(DB_HOST, test_domain, DB_USER, DB_PASS, clean_valid)
+
+if __name__ == '__main__':
+    main()
+
