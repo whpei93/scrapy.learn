@@ -7,7 +7,6 @@
 
 import scrapy
 
-
 class proxyItem(scrapy.Item):
     ip = scrapy.Field()
     port = scrapy.Field()
